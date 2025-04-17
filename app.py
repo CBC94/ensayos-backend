@@ -4,6 +4,8 @@ import xml.etree.ElementTree as ET
 import os
 import csv
 import io
+from reportlab.pdfgen import canvas
+from reportlab.lib.pagesizes import A4
 
 app = Flask(__name__)
 
@@ -12,7 +14,6 @@ def buscar_ensayos():
     molecula = request.args.get('molecula')
     patologia = request.args.get('patologia', '')
     formato = request.args.get('formato', 'json')
-
     filtro_estado = request.args.get('estado', '').lower()
     filtro_fase = request.args.get('fase', '').lower()
     filtro_pais = request.args.get('pais', '').lower()
@@ -32,7 +33,6 @@ def buscar_ensayos():
             titulo = item.find("title").text or ""
             link = item.find("link").text or ""
             ensayo_id = link.split("/")[-1] if link else "N/A"
-
             estado = "En curso"
             fase = "3" if "phase 3" in titulo.lower() else "Desconocida"
             ubicacion = "Desconocida"
@@ -88,13 +88,35 @@ def ensayo_detalle():
         response.raise_for_status()
         root = ET.fromstring(response.content)
 
-        titulo = root.findtext(".//official_title") or root.findtext(".//brief_title") or "Sin título disponible"
-        resumen = root.findtext(".//brief_summary/textblock") or "Sin resumen disponible"
+        def get_text(path):
+            el = root.find(path)
+            return el.text if el is not None else "No disponible"
+
+        titulo = get_text(".//official_title") or get_text(".//brief_title")
+        resumen = get_text(".//brief_summary/textblock")
+        estado = get_text(".//overall_status")
+        fase = get_text(".//phase")
+        tipo_estudio = get_text(".//study_type")
+        patrocinador = get_text(".//lead_sponsor/agency")
+        fecha_inicio = get_text(".//start_date")
+        criterios = get_text(".//eligibility/criteria/textblock")
+        intervenciones = [el.text for el in root.findall(".//intervention/intervention_name")]
+        condiciones = [el.text for el in root.findall(".//condition")]
+        ubicaciones = [el.text for el in root.findall(".//location/facility/name")]
 
         return jsonify({
             "id": ensayo_id,
             "titulo": titulo,
-            "resumen": resumen
+            "resumen": resumen,
+            "estado": estado,
+            "fase": fase,
+            "tipo_estudio": tipo_estudio,
+            "patrocinador": patrocinador,
+            "fecha_inicio": fecha_inicio,
+            "condiciones": condiciones,
+            "intervenciones": intervenciones,
+            "ubicaciones": ubicaciones,
+            "criterios": criterios
         })
 
     except Exception as e:
@@ -139,6 +161,57 @@ def exportar_ensayos():
 
     except Exception as e:
         return jsonify({"error": str(e)}), 500
+
+
+@app.route('/exportar_ensayos_pdf', methods=['GET'])
+def exportar_ensayos_pdf():
+    molecula = request.args.get('molecula')
+    patologia = request.args.get('patologia', '')
+
+    if not molecula:
+        return jsonify({"error": "El parámetro 'molecula' es obligatorio"}), 400
+
+    rss_url = f"https://clinicaltrials.gov/ct2/results/rss.xml?term={molecula}&cond={patologia}"
+
+    try:
+        response = requests.get(rss_url)
+        response.raise_for_status()
+        root = ET.fromstring(response.content)
+
+        buffer = io.BytesIO()
+        c = canvas.Canvas(buffer, pagesize=A4)
+        width, height = A4
+
+        c.setFont("Helvetica-Bold", 14)
+        c.drawString(50, height - 50, f"Ensayos clínicos - {molecula} / {patologia}")
+        c.setFont("Helvetica", 10)
+
+        y = height - 80
+        for i, item in enumerate(root.findall(".//item")[:20], 1):
+            titulo = item.find("title").text or ""
+            link = item.find("link").text or ""
+            ensayo_id = link.split("/")[-1] if link else "N/A"
+
+            if y < 60:
+                c.showPage()
+                c.setFont("Helvetica", 10)
+                y = height - 50
+
+            c.drawString(50, y, f"{i}. {titulo} (ID: {ensayo_id})")
+            y -= 20
+
+        c.save()
+        buffer.seek(0)
+
+        return Response(
+            buffer,
+            mimetype='application/pdf',
+            headers={"Content-Disposition": f"attachment;filename=ensayos_{molecula}.pdf"}
+        )
+
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
 
 if __name__ == '__main__':
     port = int(os.environ.get("PORT", 10000))
