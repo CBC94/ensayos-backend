@@ -1,6 +1,7 @@
 from flask import Flask, request, jsonify
 import requests
 import xml.etree.ElementTree as ET
+import os
 
 app = Flask(__name__)
 
@@ -29,7 +30,7 @@ def buscar_ensayos():
                 "id": ensayo_id,
                 "titulo": titulo,
                 "estado": "Desconocido",
-                "ubicacion": "No especificada"
+                "ubicacion": "Desconocida"
             })
 
         return jsonify({"resultados": resultados})
@@ -38,4 +39,5 @@ def buscar_ensayos():
         return jsonify({"error": str(e)}), 500
 
 if __name__ == '__main__':
-    app.run(debug=True)
+    port = int(os.environ.get("PORT", 10000))
+    app.run(host='0.0.0.0', port=port)
