@@ -1,7 +1,9 @@
-from flask import Flask, request, jsonify
+from flask import Flask, request, jsonify, Response
 import requests
 import xml.etree.ElementTree as ET
 import os
+import csv
+import io
 
 app = Flask(__name__)
 
@@ -11,7 +13,6 @@ def buscar_ensayos():
     patologia = request.args.get('patologia', '')
     formato = request.args.get('formato', 'json')
 
-    # Nuevos filtros
     filtro_estado = request.args.get('estado', '').lower()
     filtro_fase = request.args.get('fase', '').lower()
     filtro_pais = request.args.get('pais', '').lower()
@@ -28,16 +29,14 @@ def buscar_ensayos():
 
         ensayos = []
         for item in root.findall(".//item"):
-            titulo = item.find("title").text if item.find("title") is not None else ""
-            link = item.find("link").text if item.find("link") is not None else ""
+            titulo = item.find("title").text or ""
+            link = item.find("link").text or ""
             ensayo_id = link.split("/")[-1] if link else "N/A"
 
-            # Simulaciones básicas
             estado = "En curso"
             fase = "3" if "phase 3" in titulo.lower() else "Desconocida"
             ubicacion = "Desconocida"
 
-            # Aplicar filtros
             if filtro_estado and filtro_estado not in estado.lower():
                 continue
             if filtro_fase and filtro_fase != fase.lower():
@@ -75,6 +74,7 @@ def buscar_ensayos():
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
+
 @app.route('/ensayo_detalle', methods=['GET'])
 def ensayo_detalle():
     ensayo_id = request.args.get('id')
@@ -100,7 +100,46 @@ def ensayo_detalle():
     except Exception as e:
         return jsonify({"error": f"No se pudo obtener el detalle del ensayo: {str(e)}"}), 500
 
+
+@app.route('/exportar_ensayos', methods=['GET'])
+def exportar_ensayos():
+    molecula = request.args.get('molecula')
+    patologia = request.args.get('patologia', '')
+
+    if not molecula:
+        return jsonify({"error": "El parámetro 'molecula' es obligatorio"}), 400
+
+    rss_url = f"https://clinicaltrials.gov/ct2/results/rss.xml?term={molecula}&cond={patologia}"
+
+    try:
+        response = requests.get(rss_url)
+        response.raise_for_status()
+        root = ET.fromstring(response.content)
+
+        output = io.StringIO()
+        writer = csv.writer(output)
+        writer.writerow(['identificador', 'titulo', 'estado', 'fase', 'ubicacion'])
+
+        for item in root.findall(".//item"):
+            titulo = item.find("title").text or ""
+            link = item.find("link").text or ""
+            ensayo_id = link.split("/")[-1] if link else "N/A"
+            estado = "En curso"
+            fase = "3" if "phase 3" in titulo.lower() else "Desconocida"
+            ubicacion = "Desconocida"
+
+            writer.writerow([ensayo_id, titulo, estado, fase, ubicacion])
+
+        output.seek(0)
+        return Response(
+            output,
+            mimetype='text/csv',
+            headers={"Content-Disposition": f"attachment;filename=ensayos_{molecula}.csv"}
+        )
+
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
 if __name__ == '__main__':
     port = int(os.environ.get("PORT", 10000))
     app.run(host='0.0.0.0', port=port)
-
