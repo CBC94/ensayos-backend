@@ -11,6 +11,11 @@ def buscar_ensayos():
     patologia = request.args.get('patologia', '')
     formato = request.args.get('formato', 'json')
 
+    # Nuevos filtros
+    filtro_estado = request.args.get('estado', '').lower()
+    filtro_fase = request.args.get('fase', '').lower()
+    filtro_pais = request.args.get('pais', '').lower()
+
     if not molecula:
         return jsonify({"error": "El parámetro 'molecula' es obligatorio"}), 400
 
@@ -27,17 +32,37 @@ def buscar_ensayos():
             link = item.find("link").text if item.find("link") is not None else ""
             ensayo_id = link.split("/")[-1] if link else "N/A"
 
+            # Simulaciones básicas
+            estado = "En curso"
+            fase = "3" if "phase 3" in titulo.lower() else "Desconocida"
+            ubicacion = "Desconocida"
+
+            # Aplicar filtros
+            if filtro_estado and filtro_estado not in estado.lower():
+                continue
+            if filtro_fase and filtro_fase != fase.lower():
+                continue
+            if filtro_pais and filtro_pais not in ubicacion.lower():
+                continue
+
             ensayos.append({
                 "identificador": ensayo_id,
                 "titulo": titulo,
-                "estado": "En curso",
-                "ubicacion": "Desconocida"
+                "estado": estado,
+                "fase": fase,
+                "ubicacion": ubicacion
             })
 
         if formato == 'texto':
             resumen = f"Se encontraron {len(ensayos)} ensayos clínicos con la molécula \"{molecula}\""
             if patologia:
                 resumen += f" y la patología \"{patologia}\""
+            if filtro_estado:
+                resumen += f", con estado \"{filtro_estado}\""
+            if filtro_fase:
+                resumen += f", en fase \"{filtro_fase}\""
+            if filtro_pais:
+                resumen += f", en el país \"{filtro_pais}\""
             resumen += ":\n\n"
 
             for i, ensayo in enumerate(ensayos[:10], 1):
@@ -49,7 +74,6 @@ def buscar_ensayos():
 
     except Exception as e:
         return jsonify({"error": str(e)}), 500
-
 
 @app.route('/ensayo_detalle', methods=['GET'])
 def ensayo_detalle():
@@ -79,3 +103,4 @@ def ensayo_detalle():
 if __name__ == '__main__':
     port = int(os.environ.get("PORT", 10000))
     app.run(host='0.0.0.0', port=port)
+
