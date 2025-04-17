@@ -44,7 +44,7 @@ def buscar_ensayos():
             for i, ensayo in enumerate(ensayos[:10], 1):
                 resumen += f"{i}. {ensayo['titulo']} (ID: {ensayo['identificador']})\n"
 
-            return resumen
+            return resumen, 200, {'Content-Type': 'text/plain; charset=utf-8'}
 
         # Por defecto, devolvemos JSON
         return jsonify({"ensayos": ensayos})
