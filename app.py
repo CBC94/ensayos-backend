@@ -33,7 +33,23 @@ def buscar_ensayos():
                 "ubicacion": "Desconocida"
             })
 
-        return jsonify({"ensayos": ensayos})
+        # Si se pide formato de texto, devolvemos resumen
+formato = request.args.get('formato', 'json')
+if formato == 'texto':
+    resumen = f"Se encontraron {len(ensayos)} ensayos clínicos con la molécula \"{molecula}\""
+    if patologia:
+        resumen += f" y la patología \"{patologia}\""
+
+    resumen += ":\n\n"
+
+    for i, ensayo in enumerate(ensayos[:10], 1):
+        resumen += f"{i}. {ensayo['titulo']} (ID: {ensayo['identificador']})\n"
+
+    return resumen
+
+# Por defecto, devolvemos JSON
+return jsonify({"ensayos": ensayos})
+
 
     except Exception as e:
         return jsonify({"error": str(e)}), 500
