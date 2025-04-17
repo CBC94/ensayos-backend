@@ -9,6 +9,7 @@ app = Flask(__name__)
 def buscar_ensayos():
     molecula = request.args.get('molecula')
     patologia = request.args.get('patologia', '')
+    formato = request.args.get('formato', 'json')
 
     if not molecula:
         return jsonify({"error": "El parámetro 'molecula' es obligatorio"}), 400
@@ -33,23 +34,20 @@ def buscar_ensayos():
                 "ubicacion": "Desconocida"
             })
 
-        # Si se pide formato de texto, devolvemos resumen
-formato = request.args.get('formato', 'json')
-if formato == 'texto':
-    resumen = f"Se encontraron {len(ensayos)} ensayos clínicos con la molécula \"{molecula}\""
-    if patologia:
-        resumen += f" y la patología \"{patologia}\""
+        # Si el usuario pide formato texto, devolvemos resumen humanizado
+        if formato == 'texto':
+            resumen = f"Se encontraron {len(ensayos)} ensayos clínicos con la molécula \"{molecula}\""
+            if patologia:
+                resumen += f" y la patología \"{patologia}\""
+            resumen += ":\n\n"
 
-    resumen += ":\n\n"
+            for i, ensayo in enumerate(ensayos[:10], 1):
+                resumen += f"{i}. {ensayo['titulo']} (ID: {ensayo['identificador']})\n"
 
-    for i, ensayo in enumerate(ensayos[:10], 1):
-        resumen += f"{i}. {ensayo['titulo']} (ID: {ensayo['identificador']})\n"
+            return resumen
 
-    return resumen
-
-# Por defecto, devolvemos JSON
-return jsonify({"ensayos": ensayos})
-
+        # Por defecto, devolvemos JSON
+        return jsonify({"ensayos": ensayos})
 
     except Exception as e:
         return jsonify({"error": str(e)}), 500
