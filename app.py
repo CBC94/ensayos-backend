@@ -34,7 +34,6 @@ def buscar_ensayos():
                 "ubicacion": "Desconocida"
             })
 
-        # Si el usuario pide formato texto, devolvemos resumen humanizado
         if formato == 'texto':
             resumen = f"Se encontraron {len(ensayos)} ensayos clínicos con la molécula \"{molecula}\""
             if patologia:
@@ -46,11 +45,36 @@ def buscar_ensayos():
 
             return resumen, 200, {'Content-Type': 'text/plain; charset=utf-8'}
 
-        # Por defecto, devolvemos JSON
         return jsonify({"ensayos": ensayos})
 
     except Exception as e:
         return jsonify({"error": str(e)}), 500
+
+
+@app.route('/ensayo_detalle', methods=['GET'])
+def ensayo_detalle():
+    ensayo_id = request.args.get('id')
+    if not ensayo_id:
+        return jsonify({"error": "El parámetro 'id' es obligatorio"}), 400
+
+    url = f"https://clinicaltrials.gov/ct2/show/{ensayo_id}?displayxml=true"
+
+    try:
+        response = requests.get(url)
+        response.raise_for_status()
+        root = ET.fromstring(response.content)
+
+        titulo = root.findtext(".//official_title") or root.findtext(".//brief_title") or "Sin título disponible"
+        resumen = root.findtext(".//brief_summary/textblock") or "Sin resumen disponible"
+
+        return jsonify({
+            "id": ensayo_id,
+            "titulo": titulo,
+            "resumen": resumen
+        })
+
+    except Exception as e:
+        return jsonify({"error": f"No se pudo obtener el detalle del ensayo: {str(e)}"}), 500
 
 if __name__ == '__main__':
     port = int(os.environ.get("PORT", 10000))
