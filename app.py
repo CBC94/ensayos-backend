@@ -20,20 +20,20 @@ def buscar_ensayos():
         response.raise_for_status()
         root = ET.fromstring(response.content)
 
-        resultados = []
+        ensayos = []
         for item in root.findall(".//item"):
             titulo = item.find("title").text if item.find("title") is not None else ""
             link = item.find("link").text if item.find("link") is not None else ""
             ensayo_id = link.split("/")[-1] if link else "N/A"
 
-            resultados.append({
-                "id": ensayo_id,
+            ensayos.append({
+                "identificador": ensayo_id,
                 "titulo": titulo,
-                "estado": "Desconocido",
+                "estado": "En curso",
                 "ubicacion": "Desconocida"
             })
 
-        return jsonify({"resultados": resultados})
+        return jsonify({"ensayos": ensayos})
 
     except Exception as e:
         return jsonify({"error": str(e)}), 500
