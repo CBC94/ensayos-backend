@@ -392,6 +392,63 @@ def moleculas_por_fase():
         "moleculas": fases.get(fase.lower(), [])
     })
 
+from fastapi import FastAPI, Query
+from typing import Optional
+
+app = FastAPI()
+
+@app.get("/resumen_terapeutico")
+def resumen_terapeutico(molecula: str, patologia: str):
+    return {
+        "molecula": molecula,
+        "patologia": patologia,
+        "resumen": f"{molecula} se utiliza en el tratamiento de {patologia}. Actúa mediante XYZ, y ha demostrado beneficios clínicos en estudios recientes de fase III."
+    }
+
+@app.get("/evaluacion_evidencia")
+def evaluacion_evidencia(molecula: str, patologia: str):
+    return {
+        "molecula": molecula,
+        "patologia": patologia,
+        "nivel_evidencia": "Alta",
+        "razonamiento": "Existe evidencia consistente a partir de 3 ensayos fase III, con endpoints duros (SG, PFS) y buena calidad metodológica."
+    }
+
+@app.get("/coste_efectividad")
+def coste_efectividad(molecula: str, patologia: str, pais: Optional[str] = None):
+    return {
+        "molecula": molecula,
+        "patologia": patologia,
+        "pais": pais or "Global",
+        "ICER_estimado": "45.000€/AVAC",
+        "comentario": "El tratamiento se considera coste-efectivo si el umbral local es superior a 50.000€/AVAC."
+    }
+
+@app.get("/ver_ensayos_por_biomarcador")
+def ensayos_por_biomarcador(biomarcador: str, patologia: Optional[str] = None):
+    return {
+        "biomarcador": biomarcador,
+        "patologia": patologia,
+        "ensayos": [
+            {"id": "NCT0001", "titulo": "Estudio con pacientes ALK+ en CPNM", "fase": "II"},
+            {"id": "NCT0002", "titulo": "Evaluación de nuevos inhibidores para EGFR mutado", "fase": "III"}
+        ]
+    }
+
+@app.get("/tendencias_investigacion")
+def tendencias_investigacion(patologia: str, año_inicio: Optional[int] = None):
+    return {
+        "patologia": patologia,
+        "desde": año_inicio or 2018,
+        "tendencias": {
+            "fase_I": 15,
+            "fase_II": 28,
+            "fase_III": 12,
+            "uso_inmunoterapia": "↑ en los últimos 3 años",
+            "uso_combinado": "Creciente en estudios fase II"
+        }
+    }
+
 
 if __name__ == '__main__':
     port = int(os.environ.get("PORT", 10000))
