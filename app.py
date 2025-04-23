@@ -18,8 +18,8 @@ def buscar_ensayos():
     filtro_fase = request.args.get('fase', '').lower()
     filtro_pais = request.args.get('pais', '').lower()
 
-    if not molecula:
-        return jsonify({"error": "El parámetro 'molecula' es obligatorio"}), 400
+    if not molecula and not patologia:
+        return jsonify({"error": "Debe especificar al menos 'molecula' o 'patologia'"}), 400
 
     rss_url = f"https://clinicaltrials.gov/ct2/results/rss.xml?term={molecula}&cond={patologia}"
 
